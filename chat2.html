@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chat Application</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <style>
+        .chat-container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        #messages {
+            max-height: 400px;
+            overflow-y: auto;
+            border: 1px solid #ccc;
+            padding: 10px;
+            margin-bottom: 20px;
+            background-color: #f9f9f9;
+        }
+        .message {
+            margin-bottom: 10px;
+            display: flex;
+            flex-direction: column;
+        }
+        .message .sender {
+            font-weight: bold;
+            color: #555;
+        }
+        .message .text {
+            margin-left: 10px;
+            padding: 10px;
+            border-radius: 10px;
+            background-color: #e0e0e0;
+            max-width: 70%;
+        }
+
+        /* Sender's message (right-aligned) */
+        .message.sender {
+            align-items: flex-end;
+        }
+        .message.sender .text {
+            background-color: #0084ff;
+            color: white;
+            margin-left: 0;
+            margin-right: 10px;
+        }
+
+        /* Receiver's message (left-aligned) */
+        .message.receiver {
+            align-items: flex-start;
+        }
+        .message.receiver .text {
+            background-color: #e0e0e0;
+            color: black;
+            margin-left: 10px;
+            margin-right: 0;
+        }
+
+        /* Chat input area */
+        #message {
+            width: 100%;
+            padding: 10px;
+            border-radius: 5px;
+        }
+        .input-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
+        }
+        button {
+            padding: 10px 20px;
+        }
+        #chatInterface {
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container mt-5 chat-container">
+        <h1 class="text-center">Chat with Alumni</h1>
+
+        <!-- Login Form -->
+        <div id="loginForm">
+            <h2 class="text-center">Login</h2>
+            <form id="login">
+                <div class="mb-3">
+                    <input type="text" id="username" class="form-control" placeholder="Username" required>
+                </div>
+                <div class="mb-3">
+                    <input type="password" id="password" class="form-control" placeholder="Password" required>
+                </div>
+                <button type="submit" class="btn btn-primary w-100">Login</button>
+            </form>
+        </div>
+
+        <!-- User List after login -->
+        <div id="userList" class="mt-5" style="display: none;">
+            <h2>Select User to Chat</h2>
+            <ul id="users" class="list-group"></ul>
+        </div>
+
+        <!-- Chat Interface -->
+        <div id="chatInterface" class="mt-5" style="display: none;">
+            <h2>Chat with <span id="chatWithName"></span></h2>
+
+            <div id="messages"></div>
+
+            <div class="input-group">
+                <textarea id="message" class="form-control" placeholder="Type your message..." rows="4"></textarea>
+                <button class="btn btn-success" onclick="sendMessage()">Send</button>
+            </div>
+            <button class="btn btn-secondary mt-3" onclick="endChat()">End Chat</button>
+        </div>
+    </div>
+
+    <script>
+        const API_URL = 'https://chat-app-b39u.onrender.com/api'; // Your backend URL
+        let authToken = localStorage.getItem('authToken');
+        let currentChatId = null;
+        let lastMessageId = null; // Track the last message ID
+
+        // Handle user login
+        document.getElementById('login')?.addEventListener('submit', function (e) {
+            e.preventDefault();
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+
+            axios.post(`${API_URL}/auth/login`, { username, password })
+                .then(response => {
+                    if (response.data.token) {
+                        localStorage.setItem('authToken', response.data.token);
+                        authToken = response.data.token; // Store token
+                        document.getElementById('loginForm').style.display = 'none';
+                        loadUsers(); // Load users once logged in
+                    } else {
+                        alert(response.data.message);
+                    }
+                })
+                .catch(err => console.log(err));
+        });
+
+        // Load the list of users after login
+        function loadUsers() {
+            axios.get(`${API_URL}/users`, {
+                headers: {
+                    'Authorization': `Bearer ${authToken}`
+                }
+            })
+            .then(response => {
+                const usersList = document.getElementById('users');
+                response.data.forEach(user => {
+                    const listItem = document.createElement('li');
+                    listItem.classList.add('list-group-item');
+                    listItem.textContent = user.username;
+                    listItem.onclick = () => startChat(user._id, user.username);
+                    usersList.appendChild(listItem);
+                });
+                document.getElementById('userList').style.display = 'block';
+            })
+            .catch(err => console.log(err));
+        }
+
+        // Start chat with selected user
+        function startChat(userId, username) {
+            currentChatId = userId;
+            document.getElementById('chatWithName').textContent = username;
+            loadMessages(userId);
+            document.getElementById('userList').style.display = 'none';
+            document.getElementById('chatInterface').style.display = 'block';
+        }
+
+        // Load messages with the selected user
+        function loadMessages(userId) {
+            let url = `${API_URL}/chat/messages/${userId}`;
+            if (lastMessageId) {
+                url += `?after=${lastMessageId}`;
+            }
+
+            axios.get(url, {
+                headers: {
+                    'Authorization': `Bearer ${authToken}`
+                }
+            })
+            .then(response => {
+                const messagesDiv = document.getElementById('messages');
+                messagesDiv.innerHTML = ''; // Clear existing messages
+
+                // Append new messages
+                response.data.forEach(message => {
+                    const msgDiv = document.createElement('div');
+                    msgDiv.classList.add('message');
+                    
+                    // Check if the message is from the logged-in user (sender) or the other user (receiver)
+                    if (message.sender._id === userId) {
+                        msgDiv.classList.add('receiver'); // Message from the other user
+                    } else {
+                        msgDiv.classList.add('sender'); // Message from the logged-in user
+                    }
+
+                    msgDiv.innerHTML = `
+                        <span class="sender">${message.sender.username}:</span>
+                        <span class="text">${message.message}</span>
+                    `;
+                    messagesDiv.appendChild(msgDiv);
+                });
+
+                // Update the last message ID after fetching new messages
+                if (response.data.length > 0) {
+                    lastMessageId = response.data[response.data.length - 1]._id;
+                }
+            })
+            .catch(err => console.log(err));
+        }
+
+        // Send a new message
+        function sendMessage() {
+            const message = document.getElementById('message').value;
+
+            if (!message || !currentChatId) {
+                alert('Please type a message and select a user to chat');
+                return;
+            }
+
+            axios.post(`${API_URL}/chat/send`, { receiverId: currentChatId, message }, {
+                headers: {
+                    'Authorization': `Bearer ${authToken}`
+                }
+            })
+            .then(response => {
+                if (response.data._id) {
+                    loadMessages(currentChatId); // Reload messages after sending
+                    document.getElementById('message').value = ''; // Clear the message input field
+                } else {
+                    alert('Error sending message');
+                }
+            })
+            .catch(err => console.log(err));
+        }
+
+        // End chat and go back to user list
+        function endChat() {
+            document.getElementById('chatInterface').style.display = 'none';
+            document.getElementById('userList').style.display = 'block';
+            currentChatId = null;
+        }
+
+        // Periodically reload messages every 2 seconds
+        setInterval(() => {
+            if (currentChatId) {
+                loadMessages(currentChatId); // Fetch new messages
+            }
+        }, 2000);
+    </script>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

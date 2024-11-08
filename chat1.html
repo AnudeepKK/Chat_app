@@ -3,11 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Chat with Students</title>
+    <title>Chat Application</title>
     <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
 </head>
 <body>
-    <h1>Chat with Students</h1>
+    <h1>Chat with Alumni</h1>
 
     <!-- Login Form -->
     <div id="loginForm">
@@ -21,8 +21,8 @@
 
     <!-- User List after login -->
     <div id="userList" style="display: none;">
-        <h2>Select Student to Chat</h2>
-        <ul id="students"></ul>
+        <h2>Select User to Chat</h2>
+        <ul id="users"></ul>
     </div>
 
     <!-- Chat Interface -->
@@ -31,7 +31,7 @@
 
         <div id="messages" style="margin-top: 20px;"></div>
 
-        <textarea id="message" placeholder="Type your reply..." rows="4" cols="50"></textarea><br>
+        <textarea id="message" placeholder="Type your message..." rows="4" cols="50"></textarea><br>
         <button onclick="sendMessage()">Send Message</button>
         <button onclick="endChat()">End Chat</button>
     </div>
@@ -40,6 +40,7 @@
         const API_URL = 'https://chat-app-b39u.onrender.com/api'; // Your backend URL
         let authToken = localStorage.getItem('authToken');
         let currentChatId = null;
+        let lastMessageId = null; // Track the last message ID
 
         // Handle user login
         document.getElementById('login')?.addEventListener('submit', function (e) {
@@ -53,7 +54,7 @@
                         localStorage.setItem('authToken', response.data.token);
                         authToken = response.data.token; // Store token
                         document.getElementById('loginForm').style.display = 'none';
-                        loadStudents(); // Load students once logged in
+                        loadUsers(); // Load users once logged in
                     } else {
                         alert(response.data.message);
                     }
@@ -61,38 +62,43 @@
                 .catch(err => console.log(err));
         });
 
-        // Load the list of students (those who have sent messages) after login
-        function loadStudents() {
-            axios.get(`${API_URL}/chat/alumni`, {
+        // Load the list of users after login
+        function loadUsers() {
+            axios.get(`${API_URL}/users`, {
                 headers: {
                     'Authorization': `Bearer ${authToken}`
                 }
             })
             .then(response => {
-                const studentsList = document.getElementById('students');
-                response.data.forEach(student => {
+                const usersList = document.getElementById('users');
+                response.data.forEach(user => {
                     const listItem = document.createElement('li');
-                    listItem.textContent = student.username;
-                    listItem.onclick = () => startChat(student._id, student.username);
-                    studentsList.appendChild(listItem);
+                    listItem.textContent = user.username;
+                    listItem.onclick = () => startChat(user._id, user.username);
+                    usersList.appendChild(listItem);
                 });
                 document.getElementById('userList').style.display = 'block';
             })
             .catch(err => console.log(err));
         }
 
-        // Start chat with selected student
-        function startChat(studentId, username) {
-            currentChatId = studentId;
+        // Start chat with selected user
+        function startChat(userId, username) {
+            currentChatId = userId;
             document.getElementById('chatWithName').textContent = username;
-            loadMessages(studentId);
+            loadMessages(userId);
             document.getElementById('userList').style.display = 'none';
             document.getElementById('chatInterface').style.display = 'block';
         }
 
-        // Load messages with the selected student
-        function loadMessages(studentId) {
-            axios.get(`${API_URL}/chat/messages/${studentId}`, {
+        // Load messages with the selected user
+        function loadMessages(userId) {
+            let url = `${API_URL}/chat/messages/${userId}`;
+            if (lastMessageId) {
+                url += `?after=${lastMessageId}`;
+            }
+
+            axios.get(url, {
                 headers: {
                     'Authorization': `Bearer ${authToken}`
                 }
@@ -100,11 +106,18 @@
             .then(response => {
                 const messagesDiv = document.getElementById('messages');
                 messagesDiv.innerHTML = ''; // Clear existing messages
+
+                // Append new messages
                 response.data.forEach(message => {
                     const msgDiv = document.createElement('div');
                     msgDiv.textContent = `${message.sender.username}: ${message.message}`;
                     messagesDiv.appendChild(msgDiv);
                 });
+
+                // Update the last message ID after fetching new messages
+                if (response.data.length > 0) {
+                    lastMessageId = response.data[response.data.length - 1]._id;
+                }
             })
             .catch(err => console.log(err));
         }
@@ -114,7 +127,7 @@
             const message = document.getElementById('message').value;
 
             if (!message || !currentChatId) {
-                alert('Please type a message and select a student to chat');
+                alert('Please type a message and select a user to chat');
                 return;
             }
 
@@ -134,12 +147,19 @@
             .catch(err => console.log(err));
         }
 
-        // End chat and go back to student list
+        // End chat and go back to user list
         function endChat() {
             document.getElementById('chatInterface').style.display = 'none';
             document.getElementById('userList').style.display = 'block';
             currentChatId = null;
         }
+
+        // Periodically reload messages every 2 seconds
+        setInterval(() => {
+            if (currentChatId) {
+                loadMessages(currentChatId); // Fetch new messages
+            }
+        }, 2000);
     </script>
 </body>
 </html>

@@ -40,6 +40,7 @@
         const API_URL = 'https://chat-app-b39u.onrender.com/api'; // Your backend URL
         let authToken = localStorage.getItem('authToken');
         let currentChatId = null;
+        let lastMessageId = null; // Track the last message ID
 
         // Handle user login
         document.getElementById('login')?.addEventListener('submit', function (e) {
@@ -92,7 +93,14 @@
 
         // Load messages with the selected student
         function loadMessages(studentId) {
-            axios.get(`${API_URL}/chat/messages/${studentId}`, {
+            let url = `${API_URL}/chat/messages/${studentId}`;
+            if (lastMessageId) {
+                url += `?after=${lastMessageId}`;
+            }
+        
+            console.log('Fetching messages from:', url);  // Debugging
+        
+            axios.get(url, {
                 headers: {
                     'Authorization': `Bearer ${authToken}`
                 }
@@ -100,14 +108,23 @@
             .then(response => {
                 const messagesDiv = document.getElementById('messages');
                 messagesDiv.innerHTML = ''; // Clear existing messages
+
+                // Append new messages
                 response.data.forEach(message => {
                     const msgDiv = document.createElement('div');
                     msgDiv.textContent = `${message.sender.username}: ${message.message}`;
                     messagesDiv.appendChild(msgDiv);
                 });
+
+                // Update the last message ID after fetching new messages
+                if (response.data.length > 0) {
+                    lastMessageId = response.data[response.data.length - 1]._id;
+                }
             })
             .catch(err => console.log(err));
         }
+
+        
 
         // Send a new message
         function sendMessage() {
@@ -140,6 +157,14 @@
             document.getElementById('userList').style.display = 'block';
             currentChatId = null;
         }
+
+        // Periodically reload messages every 2 seconds
+        setInterval(() => {
+            if (currentChatId) {
+                loadMessages(currentChatId);
+            }
+        }, 2000);
+        
     </script>
 </body>
 </html>
