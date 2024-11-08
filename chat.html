@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chat Application</title>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+</head>
+<body>
+    <h1>Chat with Alumni</h1>
+
+    <!-- Login Form -->
+    <div id="loginForm">
+        <h2>Login</h2>
+        <form id="login">
+            <input type="text" id="username" placeholder="Username" required>
+            <input type="password" id="password" placeholder="Password" required>
+            <button type="submit">Login</button>
+        </form>
+    </div>
+
+    <!-- User List after login -->
+    <div id="userList" style="display: none;">
+        <h2>Select User to Chat</h2>
+        <ul id="users"></ul>
+    </div>
+
+    <!-- Chat Interface -->
+    <div id="chatInterface" style="display: none;">
+        <h2>Chat with <span id="chatWithName"></span></h2>
+
+        <div id="messages" style="margin-top: 20px;"></div>
+
+        <textarea id="message" placeholder="Type your message..." rows="4" cols="50"></textarea><br>
+        <button onclick="sendMessage()">Send Message</button>
+        <button onclick="endChat()">End Chat</button>
+    </div>
+
+    <script>
+        const API_URL = 'http://localhost:5000/api'; // Your backend URL
+        let authToken = localStorage.getItem('authToken');
+        let currentChatId = null;
+
+        // Handle user login
+        document.getElementById('login')?.addEventListener('submit', function (e) {
+            e.preventDefault();
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+
+            axios.post(`${API_URL}/auth/login`, { username, password })
+                .then(response => {
+                    if (response.data.token) {
+                        localStorage.setItem('authToken', response.data.token);
+                        authToken = response.data.token; // Store token
+                        document.getElementById('loginForm').style.display = 'none';
+                        loadUsers(); // Load users once logged in
+                    } else {
+                        alert(response.data.message);
+                    }
+                })
+                .catch(err => console.log(err));
+        });
+
+        // Load the list of users after login
+        function loadUsers() {
+            axios.get(`${API_URL}/users`, {
+                headers: {
+                    'Authorization': `Bearer ${authToken}`
+                }
+            })
+            .then(response => {
+                const usersList = document.getElementById('users');
+                response.data.forEach(user => {
+                    const listItem = document.createElement('li');
+                    listItem.textContent = user.username;
+                    listItem.onclick = () => startChat(user._id, user.username);
+                    usersList.appendChild(listItem);
+                });
+                document.getElementById('userList').style.display = 'block';
+            })
+            .catch(err => console.log(err));
+        }
+
+        // Start chat with selected user
+        function startChat(userId, username) {
+            currentChatId = userId;
+            document.getElementById('chatWithName').textContent = username;
+            loadMessages(userId);
+            document.getElementById('userList').style.display = 'none';
+            document.getElementById('chatInterface').style.display = 'block';
+        }
+
+        // Load messages with the selected user
+        function loadMessages(userId) {
+            axios.get(`${API_URL}/chat/messages/${userId}`, {
+                headers: {
+                    'Authorization': `Bearer ${authToken}`
+                }
+            })
+            .then(response => {
+                const messagesDiv = document.getElementById('messages');
+                messagesDiv.innerHTML = ''; // Clear existing messages
+                response.data.forEach(message => {
+                    const msgDiv = document.createElement('div');
+                    msgDiv.textContent = `${message.sender.username}: ${message.message}`;
+                    messagesDiv.appendChild(msgDiv);
+                });
+            })
+            .catch(err => console.log(err));
+        }
+
+        // Send a new message
+        function sendMessage() {
+            const message = document.getElementById('message').value;
+
+            if (!message || !currentChatId) {
+                alert('Please type a message and select a user to chat');
+                return;
+            }
+
+            axios.post(`${API_URL}/chat/send`, { receiverId: currentChatId, message }, {
+                headers: {
+                    'Authorization': `Bearer ${authToken}`
+                }
+            })
+            .then(response => {
+                if (response.data._id) {
+                    loadMessages(currentChatId); // Reload messages after sending
+                    document.getElementById('message').value = ''; // Clear the message input field
+                } else {
+                    alert('Error sending message');
+                }
+            })
+            .catch(err => console.log(err));
+        }
+
+        // End chat and go back to user list
+        function endChat() {
+            document.getElementById('chatInterface').style.display = 'none';
+            document.getElementById('userList').style.display = 'block';
+            currentChatId = null;
+        }
+    </script>
+</body>
+</html>

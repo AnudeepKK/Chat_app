@@ -1,0 +1,23 @@
+[
+    {
+      "username": "alumni1",
+      "password": "password1",
+      "role": "Alumni"
+    },
+    {
+      "username": "alumni2",
+      "password": "password2",
+      "role": "Alumni"
+    },
+    {
+      "username": "student1",
+      "password": "password3",
+      "role": "Student"
+    },
+    {
+      "username": "student2",
+      "password": "password4",
+      "role": "Student"
+    }
+  ]
+  
