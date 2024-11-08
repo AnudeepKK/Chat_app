@@ -59,7 +59,7 @@ exports.getAlumniUsers = async (req, res) => {
       }
   
       // Retrieve distinct student IDs who have sent messages to the current alumni
-      const studentIds = await Message.distinct('sender', { receiver: req.user._id });
+      const studentIds = await Message.distinct('sender', { receiver: req.user.userId });
       console.log(req.user._id);
       // Fetch details of students who have messaged this alumni
       const students = await User.find({ _id: { $in: studentIds }, role: 'Student' });
