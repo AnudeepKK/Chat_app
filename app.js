@@ -9,6 +9,12 @@ const userRoutes = require('./routes/alumi');
 dotenv.config();
 const app = express();
 
+app.use(
+  helmet({
+    contentSecurityPolicy: false,
+  })
+);
+
 // Enable CORS
 app.use(cors()); // Allow all origins by default
 
