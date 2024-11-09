@@ -11,9 +11,19 @@ const app = express();
 
 app.use(
   helmet({
-    contentSecurityPolicy: false,
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        connectSrc: ["'self'", "https://chat-app-b39u.onrender.com"],
+        scriptSrc: ["'self'", "https://cdn.jsdelivr.net"],
+        imgSrc: ["'self'", "data:", "https://*"],
+        styleSrc: ["'self'", "'unsafe-inline'"],
+        fontSrc: ["'self'", "https://fonts.gstatic.com"],
+      },
+    },
   })
 );
+
 
 // Enable CORS
 app.use(cors()); // Allow all origins by default
