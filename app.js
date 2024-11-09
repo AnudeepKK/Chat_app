@@ -5,25 +5,11 @@ const cors = require('cors'); // Import CORS
 const authRoutes = require('./routes/auth');
 const chatRoutes = require('./routes/chat');
 const userRoutes = require('./routes/alumi');
-const helmet = require('helmet');
+
 
 dotenv.config();
 const app = express();
 
-app.use(
-  helmet({
-    contentSecurityPolicy: {
-      directives: {
-        defaultSrc: ["'self'"],
-        connectSrc: ["'self'", "https://chat-app-b39u.onrender.com"],
-        scriptSrc: ["'self'", "https://cdn.jsdelivr.net"],
-        imgSrc: ["'self'", "data:", "https://*"],
-        styleSrc: ["'self'", "'unsafe-inline'"],
-        fontSrc: ["'self'", "https://fonts.gstatic.com"],
-      },
-    },
-  })
-);
 
 
 // Enable CORS
